@@ -34,9 +34,13 @@ var (
 	bindPort      int
 )
 
-func stop(ctx context.Context) {
+func Stop(ctx context.Context) {
 	processMutex.Lock()
 	defer processMutex.Unlock()
+	stop(ctx)
+}
+
+func stop(ctx context.Context) {
 	if process == nil {
 		return
 	}
@@ -109,11 +113,14 @@ func mpvRPC(ctx context.Context, args ...string) (string, error) {
 	return response.Data, nil
 }
 
-func play(ctx context.Context, file string, done chan error) error {
-	stop(ctx)
-
+func Play(ctx context.Context, file string, done chan error) error {
 	processMutex.Lock()
 	defer processMutex.Unlock()
+	return play(ctx, file, done)
+}
+
+func play(ctx context.Context, file string, done chan error) error {
+	stop(ctx)
 
 	args := []string{}
 	for _, a := range mpvArgs {
@@ -150,7 +157,7 @@ func (r *remoteServer) Play(ctx context.Context, in *pb.PlayRequest) (*pb.PlayRe
 		return nil, errors.New("No filename specified.")
 	}
 	res := make(chan error, 1)
-	play(ctx, in.Filename, res)
+	Play(ctx, in.Filename, res)
 	err := <-res
 	if err != nil {
 		return nil, err
@@ -163,7 +170,7 @@ func (r *remoteServer) SetVolume(ctx context.Context, in *pb.SetVolumeRequest) (
 }
 
 func (r *remoteServer) Interrupt(ctx context.Context, in *pb.InterruptRequest) (*pb.InterruptResponse, error) {
-	stop(ctx)
+	Stop(ctx)
 	return &pb.InterruptResponse{}, nil
 }
 
@@ -178,7 +185,7 @@ func main() {
 	}
 	mpvSocketName = fmt.Sprintf("%s/mpv.socket", tmpDir)
 	defer func() {
-		stop(context.Background())
+		Stop(context.Background())
 		os.RemoveAll(tmpDir)
 	}()
 
