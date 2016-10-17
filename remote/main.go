@@ -34,6 +34,10 @@ var (
 	bindPort      int
 )
 
+func blank(ctx context.Context) {
+	//TODO(q3k): implement this
+}
+
 func Stop(ctx context.Context) {
 	processMutex.Lock()
 	defer processMutex.Unlock()
@@ -49,6 +53,7 @@ func stop(ctx context.Context) {
 		tr.LazyPrintf("Stopping previous process...")
 	}
 	process.Kill()
+	blank(ctx)
 }
 
 // See JSON IPC in mpv(1)
@@ -144,7 +149,12 @@ func play(ctx context.Context, file string, done chan error) error {
 	process = cmd.Process
 	glog.Infof("Set process to %v", process)
 	go func() {
-		done <- cmd.Wait()
+		res := cmd.Wait()
+		if res == nil {
+			// Video playback not interrupted - blank the screen.
+			blank(ctx)
+		}
+		done <- res
 	}()
 	return nil
 }
