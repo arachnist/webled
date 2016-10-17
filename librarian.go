@@ -58,10 +58,10 @@ func (l *Librarian) Start() error {
 	return nil
 }
 
-func (l *Librarian) AcquireAndPlay(ctx context.Context, uri string, c Callback) error {
+func (l *Librarian) AcquireAndPlay(ctx context.Context, uri string, c Callback) ([]int64, error) {
 	metaBytes, meta, err := getWebMeta(uri)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Invalid URI (%s: %v).", uri, err))
+		return []int64{}, errors.New(fmt.Sprintf("Invalid URI (%s: %v).", uri, err))
 	}
 	id := meta.ID
 	glog.Info("Getting video %s...", id)
@@ -71,9 +71,9 @@ func (l *Librarian) AcquireAndPlay(ctx context.Context, uri string, c Callback) 
 
 	if err != nil {
 		glog.Infof("Video %s not present, downloading.", uri)
-		err = overlord.WebDownload(ctx, uri, dataFile)
+		uids, err := overlord.WebDownload(ctx, uri, dataFile)
 		if err != nil {
-			return err
+			return []int64{}, err
 		}
 		// Wait for the video to start being converted, then save meta and
 		// trigger callback.
@@ -91,20 +91,21 @@ func (l *Librarian) AcquireAndPlay(ctx context.Context, uri string, c Callback) 
 				break
 			}
 		}(meta.FullTitle, dataFile)
+		return uids, nil
 	} else {
 		glog.Infof("Video %s present.", uri)
 		data, err := ioutil.ReadFile(metaFile)
 		if err != nil {
-			return err
+			return []int64{}, err
 		}
 		meta := &WebMeta{}
 		err = json.NewDecoder(strings.NewReader(string(data))).Decode(meta)
 		if err != nil {
-			return err
+			return []int64{}, err
 		}
 		go c(meta.FullTitle, dataFile)
+		return []int64{}, nil
 	}
-	return nil
 }
 
 func (l *Librarian) GetVideos(ctx context.Context) ([]LibraryEntry, error) {

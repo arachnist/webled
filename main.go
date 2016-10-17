@@ -5,6 +5,7 @@ import (
 	"flag"
 	"html/template"
 	"net/http"
+	"strconv"
 
 	"github.com/golang/glog"
 	"golang.org/x/net/context"
@@ -62,30 +63,31 @@ type APILibrary struct {
 	Videos []LibraryEntry `json:"videos"`
 }
 
-func apiPlay(ctx context.Context, r *http.Request, c func(string, string)) error {
+func apiPlay(ctx context.Context, r *http.Request, c func(string, string)) ([]int64, error) {
 	uri := r.URL.Query().Get("uri")
 	id := r.URL.Query().Get("id")
 	if uri == "" && id == "" {
-		return errors.New("No uri or id provided.")
+		return []int64{}, errors.New("No uri or id provided.")
 	}
 	if uri != "" {
-		err := librarian.AcquireAndPlay(ctx, uri, c)
+		uids, err := librarian.AcquireAndPlay(ctx, uri, c)
 		if err != nil {
-			return err
+			return []int64{}, err
 		}
+		return uids, nil
 	} else {
 		videos, err := librarian.GetVideos(ctx)
 		if err != nil {
-			return err
+			return []int64{}, err
 		}
 		for _, video := range videos {
 			if video.ID == id {
 				c(video.Title, video.File)
-				break
+				return []int64{}, nil
 			}
 		}
+		return []int64{}, errors.New("No such file.")
 	}
-	return nil
 }
 
 func main() {
@@ -128,16 +130,29 @@ func main() {
 	})
 
 	handleAPI("webled/playlist/play/now", func(ctx context.Context, r *http.Request) (interface{}, error) {
-		return nil, apiPlay(ctx, r, player.PlayNow)
+		return apiPlay(ctx, r, player.PlayNow)
 	})
 
 	handleAPI("webled/playlist/play/append", func(ctx context.Context, r *http.Request) (interface{}, error) {
-		return nil, apiPlay(ctx, r, player.PlayAppend)
+		return apiPlay(ctx, r, player.PlayAppend)
 	})
 
 	handleAPI("webled/playlist/stop", func(ctx context.Context, r *http.Request) (interface{}, error) {
 		player.Stop()
 		return nil, nil
+	})
+
+	handleAPI("webled/work/get", func(ctx context.Context, r *http.Request) (interface{}, error) {
+		uidsString := r.URL.Query()["uid"]
+		uidsInt := []int64{}
+		for _, s := range uidsString {
+			i, err := strconv.ParseInt(s, 10, 64)
+			if err != nil {
+				continue
+			}
+			uidsInt = append(uidsInt, i)
+		}
+		return overlord.GetWorkStatus(uidsInt), nil
 	})
 
 	http.HandleFunc("/requests", func(w http.ResponseWriter, r *http.Request) {
