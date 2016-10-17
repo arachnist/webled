@@ -1,0 +1,46 @@
+<html>
+    <body>
+        <h1>Webled status</h1>
+        {{ if .NowPlaying }}
+        <b>Now Playing:</b> {{ .NowPlaying.Title }}
+        {{ end }}
+        <h2>Playlist</h2>
+        <ul>
+            {{ range .Playlist }}
+            <li>
+                {{ .Title }}
+            </li>
+            {{ end }}
+        </ul>
+        <h2>Library</h2>
+        <ul>
+            {{ range .Library }}
+            <li>
+                <b>{{ .Title }}</b> |
+                <a href="/api/1/webled/playlist/play/now?id={{ .ID }}">Play Now</a> |
+                <a href="/api/1/webled/playlist/play/append?id={{ .ID }}">Append</a>
+            </li>
+            {{ end }}
+        </ul>
+        <h2>Workers</h2>
+        <ul>
+            {{ range .Workers }}
+            <li>
+                <b>ID: {{ .ID }}</b>
+                {{ if not .Current }}
+                Unemployed
+                {{ else if eq .Current.Type 0 }}
+                Removing file {{ .Current.RemoveFile.Path }}
+                {{ else if eq .Current.Type 1 }}
+                Downloading ({{ .Current.WebDownload.VideoURL }} -&gt; {{ .Current.WebDownload.TargetPath}})
+                {{ else if eq .Current.Type 2 }}
+                Converting ({{ .Current.Convert.SourcePath }} -&gt; {{ .Current.Convert.TargetPath }})
+                {{ else }}
+                ???
+                {{ end }}
+            </li>
+            {{ end }}
+        </ul>
+        <h2>Work</h2>
+    </body>
+</html>
